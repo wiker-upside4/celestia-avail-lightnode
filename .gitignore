@@ -1,0 +1,31 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.token
+*token.txt
+identity.toml
+*credentials*
+**/secret*
+grafana/datasources/dabeat.yaml
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*.swo
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Backups (operational, not source)
+backups/
+logs/
+*.bak
+
+# Other
+node_modules/
+.idea/
+.vscode/

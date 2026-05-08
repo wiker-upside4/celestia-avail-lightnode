@@ -1,0 +1,11 @@
+/home/wiker/dabeat/logs/*.log {
+    su wiker wiker
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0640 wiker wiker
+    copytruncate
+}

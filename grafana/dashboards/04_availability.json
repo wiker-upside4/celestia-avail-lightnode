@@ -1,0 +1,426 @@
+{
+  "uid": "dabeat-availability",
+  "title": "DABEAT \u2014 Availability",
+  "tags": [
+    "dabeat"
+  ],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Sampling Success Rate (%, 5m bucket)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT time_bucket('5 minute', ts) AS time,\n              'celestia' AS metric,\n              100.0 * COUNT(*) FILTER (WHERE available) / NULLIF(COUNT(*), 0) AS value\n       FROM block_availability_samples WHERE da_layer='celestia' AND $__timeFilter(ts)\n       GROUP BY 1\n       UNION ALL\n       SELECT time_bucket('5 minute', ts) AS time,\n              'avail' AS metric,\n              100.0 * COUNT(*) FILTER (WHERE confidence >= 92) / NULLIF(COUNT(*), 0) AS value\n       FROM block_availability_samples WHERE da_layer='avail' AND $__timeFilter(ts)\n       GROUP BY 1\n       ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "histogram",
+      "title": "Avail Confidence Distribution",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT confidence FROM block_availability_samples\n       WHERE da_layer='avail' AND confidence IS NOT NULL AND $__timeFilter(ts)",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "bucketSize": null,
+        "combine": false
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Sampling Latency p50/p95 (ms)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT time_bucket('5 minute', ts) AS time,\n              da_layer || '_p50' AS metric,\n              percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms) AS value\n       FROM block_availability_samples WHERE latency_ms IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1, da_layer\n       UNION ALL\n       SELECT time_bucket('5 minute', ts) AS time,\n              da_layer || '_p95' AS metric,\n              percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) AS value\n       FROM block_availability_samples WHERE latency_ms IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1, da_layer\n       ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "piechart",
+      "title": "Avail Sampling Status Breakdown",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT status AS metric, COUNT(*) AS value\n       FROM block_availability_samples\n       WHERE da_layer='avail' AND status IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "pieType": "pie",
+        "displayLabels": [
+          "name",
+          "percent"
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Block Coverage \u2014 Celestia (last 1h)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "WITH measured AS (\n         SELECT COUNT(DISTINCT height) AS m FROM block_availability_samples\n         WHERE da_layer='celestia' AND ts > NOW() - INTERVAL '1 hour'\n       ), produced AS (\n         SELECT COUNT(*) AS p FROM headers\n         WHERE da_layer='celestia' AND ts > NOW() - INTERVAL '1 hour'\n       )\n       SELECT 100.0 * (SELECT m FROM measured) / NULLIF((SELECT p FROM produced), 0) AS pct",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "Block Coverage \u2014 Avail (last 1h)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 16,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "WITH measured AS (\n         SELECT COUNT(DISTINCT height) AS m FROM block_availability_samples\n         WHERE da_layer='avail' AND ts > NOW() - INTERVAL '1 hour'\n       ), produced AS (\n         SELECT COUNT(*) AS p FROM headers\n         WHERE da_layer='avail' AND ts > NOW() - INTERVAL '1 hour'\n       )\n       SELECT 100.0 * (SELECT m FROM measured) / NULLIF((SELECT p FROM produced), 0) AS pct",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Pseudo Survival: success rate vs block age (s)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT EXTRACT(EPOCH FROM (s.ts - h.block_time))::int AS time,\n              s.da_layer AS metric,\n              CASE WHEN s.da_layer='celestia' THEN\n                100.0 * COUNT(*) FILTER (WHERE s.available) / NULLIF(COUNT(*),0)\n              ELSE\n                100.0 * COUNT(*) FILTER (WHERE s.confidence >= 92) / NULLIF(COUNT(*),0)\n              END AS value\n       FROM block_availability_samples s\n       JOIN headers h ON h.da_layer=s.da_layer AND h.height=s.height\n       WHERE h.block_time IS NOT NULL AND $__timeFilter(s.ts)\n       GROUP BY 1, 2 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 0,
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}

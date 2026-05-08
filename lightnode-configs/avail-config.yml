@@ -1,0 +1,11 @@
+http_server_host="0.0.0.0"
+http_server_port=7007
+bootstraps=['/dns/bootnode.1.lightclient.mainnet-mmp.avail.so/tcp/37000/p2p/12D3KooWHgPbEYcvZvZz4aT3KiBdjQmphG5qJ9StWoUps1ofKbJx']
+full_node_ws=['wss://mainnet-rpc.avail.so/ws','wss://mainnet.avail-rpc.com','wss://avail.api.onfinality.io/public-ws']
+confidence=99.9
+avail_path='/home/wiker/.avail/mainnet/data'
+kad_record_ttl=43200
+genesis_hash='b91746b45e0346cc2f815a520b9c6cb4d5c0902af848db0a80f85932d2e8276a'
+ot_collector_endpoint='http://otel.lightclient.mainnet.avail.so:4317'
+
+app_id=46

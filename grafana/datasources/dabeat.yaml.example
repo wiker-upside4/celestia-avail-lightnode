@@ -1,0 +1,21 @@
+apiVersion: 1
+datasources:
+  - name: dabeat-pg
+    uid: dabeat-pg
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: <WORKER_DB_INTERNAL_IP>:5432
+    user: dabeat_ro
+    database: dabeat
+    isDefault: true
+    jsonData:
+      database: dabeat
+      sslmode: disable
+      timescaledb: true
+      postgresVersion: 1400
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: "${DABEAT_RO_PASSWORD}"
+    editable: true

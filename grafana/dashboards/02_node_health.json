@@ -1,0 +1,490 @@
+{
+  "uid": "dabeat-health",
+  "title": "DABEAT \u2014 Node Health",
+  "tags": [
+    "dabeat"
+  ],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Sync Lag (blocks)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT time_bucket('1 minute', ts) AS time,\n              da_layer AS metric,\n              MAX(sync_lag) AS value\n       FROM node_health WHERE $__timeFilter(ts)\n       GROUP BY 1, 2 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Celestia Peer Count",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT time_bucket('1 minute', ts) AS time,\n              'peers' AS metric, AVG(peers_count) AS value\n       FROM node_health WHERE da_layer='celestia' AND peers_count IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "green",
+                "value": 15
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Celestia Bandwidth Rate (KB/s)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT time_bucket('1 minute', ts) AS time,\n              'rate_in' AS metric, AVG(rate_in)/1024.0 AS value\n       FROM node_health WHERE da_layer='celestia' AND $__timeFilter(ts)\n       GROUP BY 1\n       UNION ALL\n       SELECT time_bucket('1 minute', ts) AS time,\n              'rate_out' AS metric, AVG(rate_out)/1024.0 AS value\n       FROM node_health WHERE da_layer='celestia' AND $__timeFilter(ts)\n       GROUP BY 1\n       ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "KBs",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Celestia Cumulative Bandwidth (GB)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT ts AS time,\n              'in_total' AS metric, bandwidth_in_total/1073741824.0 AS value\n       FROM node_health WHERE da_layer='celestia' AND $__timeFilter(ts)\n       UNION ALL\n       SELECT ts AS time,\n              'out_total' AS metric, bandwidth_out_total/1073741824.0 AS value\n       FROM node_health WHERE da_layer='celestia' AND $__timeFilter(ts)\n       ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decgbytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Celestia DAS Concurrency",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT time_bucket('1 minute', ts) AS time,\n              'concurrency' AS metric, MAX(das_concurrency) AS value\n       FROM node_health WHERE da_layer='celestia' AND $__timeFilter(ts)\n       GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Avail Block Confidence (%)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT time_bucket('1 minute', ts) AS time,\n              'confidence' AS metric, AVG(block_confidence) AS value\n       FROM node_health WHERE da_layer='avail' AND block_confidence IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "RPC Latency Percentiles (ms)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT time_bucket('5 minute', ts) AS time,\n              da_layer || '_p50' AS metric,\n              percentile_cont(0.5) WITHIN GROUP (ORDER BY rpc_latency_ms) AS value\n       FROM node_health WHERE rpc_latency_ms IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1, da_layer\n       UNION ALL\n       SELECT time_bucket('5 minute', ts) AS time,\n              da_layer || '_p95' AS metric,\n              percentile_cont(0.95) WITHIN GROUP (ORDER BY rpc_latency_ms) AS value\n       FROM node_health WHERE rpc_latency_ms IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1, da_layer\n       UNION ALL\n       SELECT time_bucket('5 minute', ts) AS time,\n              da_layer || '_p99' AS metric,\n              percentile_cont(0.99) WITHIN GROUP (ORDER BY rpc_latency_ms) AS value\n       FROM node_health WHERE rpc_latency_ms IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1, da_layer\n       ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 0,
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}

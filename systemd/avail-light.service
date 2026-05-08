@@ -1,0 +1,14 @@
+[Unit]
+Description=Avail Light Client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=wiker
+WorkingDirectory=/home/wiker/.avail/mainnet
+ExecStart=/home/wiker/.avail/mainnet/bin/avail-light --config /home/wiker/.avail/mainnet/config/config.yml
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

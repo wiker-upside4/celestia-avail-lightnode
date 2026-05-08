@@ -1,0 +1,14 @@
+[Unit]
+Description=Celestia Light Node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=wiker
+ExecStart=/usr/local/bin/celestia light start --core.ip rpc.celestia.pops.one --core.port 9090 --p2p.network celestia --rpc.addr 0.0.0.0 --rpc.port 26658
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
