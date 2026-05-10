@@ -25,6 +25,30 @@ APP_ID = "46"
 LN_INSTANCE = "avail-A1"
 SUBMIT_TIMEOUT_SEC = 60
 
+# Avail full node WS RPC for balance queries (LC doesn't expose state.Balance)
+AVAIL_WS_URL = os.environ.get("AVAIL_WS_URL", "wss://mainnet-rpc.avail.so/ws")
+AVAIL_SIGNER_ADDR = os.environ.get(
+    "AVAIL_SIGNER_ADDR", "5HBJNLneBinv4zw2zisjTEr4U54vQrZGjYWbk2zyQBvvRbYC"
+)
+
+
+def _avail_free_balance() -> int | None:
+    """Query free balance (raw planck, divide by 1e18 for AVAIL).
+    Returns None if query fails. Connects to public Avail full node WS.
+    """
+    try:
+        from substrateinterface import SubstrateInterface
+    except ImportError:
+        sys.stderr.write("[avail/submit] substrate-interface not installed\n")
+        return None
+    try:
+        si = SubstrateInterface(url=AVAIL_WS_URL)
+        result = si.query("System", "Account", [AVAIL_SIGNER_ADDR])
+        return int(result.value["data"]["free"])
+    except Exception as e:
+        sys.stderr.write(f"[avail/submit] balance query failed: {e}\n")
+        return None
+
 
 def make_payload() -> tuple[str, bytes, str]:
     """Returns (raw_str, raw_bytes_for_b64, sha256_hex)."""
@@ -50,6 +74,9 @@ def main():
     index = None
     latency_ms = None
     details: dict = {}
+
+    # Pre-balance for fee_paid measurement (best-effort, ~3s overhead)
+    bal_before = _avail_free_balance()
 
     start = time.perf_counter()
     try:
@@ -84,6 +111,18 @@ def main():
         latency_ms = int((time.perf_counter() - start) * 1000)
         error_type = "request"
         details["error"] = str(e)[:200]
+
+    # Post-balance for fee measurement (only if submit succeeded)
+    if submit_success:
+        # Wait briefly for chain state to update before measuring
+        time.sleep(8)
+        bal_after = _avail_free_balance()
+        if bal_before is not None and bal_after is not None:
+            fee_planck = bal_before - bal_after
+            details["fee_paid_planck"] = fee_planck
+            details["fee_paid_avail"] = fee_planck / 1e18
+            details["balance_before_planck"] = bal_before
+            details["balance_after_planck"] = bal_after
 
     # Always record the probe (success or fail) for visibility
     if submit_success:
