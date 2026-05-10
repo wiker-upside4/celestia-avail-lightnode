@@ -25,7 +25,7 @@ PYTHONPATH=$PROJ
 * * * * * $PYTHON -m workers.avail.header        >>$LOGS/avail_header.log        2>&1
 * * * * * $PYTHON -m workers.avail.app_id_mon    >>$LOGS/avail_app_id.log        2>&1
 * * * * * $PYTHON -m workers.avail.availability_check >>$LOGS/avail_availability.log 2>&1
-* * * * * $PYTHON -m workers.avail.submit            >>$LOGS/avail_submit.log         2>&1
+*/5 * * * * $PYTHON -m workers.avail.submit          >>$LOGS/avail_submit.log         2>&1
 */5 * * * * $PYTHON -m workers.avail.retrieve        >>$LOGS/avail_retrieve.log       2>&1
 * * * * * $PYTHON -m workers.celestia.submit         >>$LOGS/celestia_submit.log      2>&1
 */5 * * * * $PYTHON -m workers.celestia.retrieve     >>$LOGS/celestia_retrieve.log    2>&1
