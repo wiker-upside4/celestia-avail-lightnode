@@ -729,6 +729,388 @@
           "sort": "none"
         }
       }
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Avail Wallet Balance (\ud604\uc7ac)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT (details->>'balance_after_planck')::numeric / 1e18 AS avail\n       FROM probes\n       WHERE da_layer='avail' AND submit_success\n         AND details->>'balance_after_planck' IS NOT NULL\n       ORDER BY ts DESC LIMIT 1",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 200
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Celestia Wallet Balance (\ud604\uc7ac)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 36,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT (details->>'balance_after')::numeric / 1e6 AS tia\n       FROM probes\n       WHERE da_layer='celestia' AND submit_success\n         AND details->>'balance_after' IS NOT NULL\n       ORDER BY ts DESC LIMIT 1",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "green",
+                "value": 25
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Avail \uc794\uc5ec \uc6b4\uc601 \uc77c\uc218 (\ud604\uc7ac burn rate \uae30\uc900)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "WITH recent AS (\n         SELECT\n           AVG((details->>'fee_paid_avail')::numeric) AS avg_fee_avail,\n           COUNT(*) AS submits_per_hour\n         FROM probes\n         WHERE da_layer='avail' AND submit_success\n           AND details->>'fee_paid_avail' IS NOT NULL\n           AND ts > NOW() - INTERVAL '1 hour'\n       ), latest AS (\n         SELECT (details->>'balance_after_planck')::numeric / 1e18 AS bal_avail\n         FROM probes WHERE da_layer='avail' AND submit_success\n           AND details->>'balance_after_planck' IS NOT NULL\n         ORDER BY ts DESC LIMIT 1\n       )\n       SELECT ROUND((latest.bal_avail / NULLIF(recent.avg_fee_avail * recent.submits_per_hour * 24, 0))::numeric, 1)\n       FROM latest, recent",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 14
+              },
+              {
+                "color": "green",
+                "value": 56
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Celestia \uc794\uc5ec \uc6b4\uc601 \uc77c\uc218",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 36,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "WITH recent AS (\n         SELECT\n           AVG((details->>'fee_paid_utia')::int) AS avg_fee_utia,\n           COUNT(*) AS submits_per_hour\n         FROM probes\n         WHERE da_layer='celestia' AND submit_success\n           AND details->>'fee_paid_utia' IS NOT NULL\n           AND ts > NOW() - INTERVAL '1 hour'\n       ), latest AS (\n         SELECT (details->>'balance_after')::numeric AS bal_utia\n         FROM probes WHERE da_layer='celestia' AND submit_success\n           AND details->>'balance_after' IS NOT NULL\n         ORDER BY ts DESC LIMIT 1\n       )\n       SELECT ROUND((latest.bal_utia / NULLIF(recent.avg_fee_utia * recent.submits_per_hour * 24, 0))::numeric, 1)\n       FROM latest, recent",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 14
+              },
+              {
+                "color": "green",
+                "value": 56
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Avail Wallet Balance Trend (AVAIL)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT ts AS time,\n              'balance_avail' AS metric,\n              (details->>'balance_after_planck')::numeric / 1e18 AS value\n       FROM probes\n       WHERE da_layer='avail' AND submit_success\n         AND details->>'balance_after_planck' IS NOT NULL\n         AND $__timeFilter(ts)\n       ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Celestia Wallet Balance Trend (TIA)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT ts AS time,\n              'balance_tia' AS metric,\n              (details->>'balance_after')::numeric / 1e6 AS value\n       FROM probes\n       WHERE da_layer='celestia' AND submit_success\n         AND details->>'balance_after' IS NOT NULL\n         AND $__timeFilter(ts)\n       ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "fillOpacity": 10,
+            "axisLabel": ""
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
     }
   ],
   "schemaVersion": 39,

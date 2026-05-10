@@ -877,6 +877,121 @@ panels.append(timeseries(
     {"x": 18, "y": 28, "w": 6, "h": 8}, "short",
 ))
 
+# Row 5: 라이트노드 지갑 잔액 (현재 / 시계열 / 예상 잔여 일수)
+panels.append(stat(
+    "Avail Wallet Balance (현재)",
+    """SELECT (details->>'balance_after_planck')::numeric / 1e18 AS avail
+       FROM probes
+       WHERE da_layer='avail' AND submit_success
+         AND details->>'balance_after_planck' IS NOT NULL
+       ORDER BY ts DESC LIMIT 1""",
+    {"x": 0, "y": 36, "w": 6, "h": 4}, "short",
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "red", "value": None},
+        {"color": "yellow", "value": 50},
+        {"color": "green", "value": 200},
+    ]},
+    color_mode="background",
+))
+
+panels.append(stat(
+    "Celestia Wallet Balance (현재)",
+    """SELECT (details->>'balance_after')::numeric / 1e6 AS tia
+       FROM probes
+       WHERE da_layer='celestia' AND submit_success
+         AND details->>'balance_after' IS NOT NULL
+       ORDER BY ts DESC LIMIT 1""",
+    {"x": 6, "y": 36, "w": 6, "h": 4}, "short",
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "red", "value": None},
+        {"color": "yellow", "value": 5},
+        {"color": "green", "value": 25},
+    ]},
+    color_mode="background",
+))
+
+# 예상 잔여 일수 (최근 1시간 burn rate × 24)
+panels.append(stat(
+    "Avail 잔여 운영 일수 (현재 burn rate 기준)",
+    """WITH recent AS (
+         SELECT
+           AVG((details->>'fee_paid_avail')::numeric) AS avg_fee_avail,
+           COUNT(*) AS submits_per_hour
+         FROM probes
+         WHERE da_layer='avail' AND submit_success
+           AND details->>'fee_paid_avail' IS NOT NULL
+           AND ts > NOW() - INTERVAL '1 hour'
+       ), latest AS (
+         SELECT (details->>'balance_after_planck')::numeric / 1e18 AS bal_avail
+         FROM probes WHERE da_layer='avail' AND submit_success
+           AND details->>'balance_after_planck' IS NOT NULL
+         ORDER BY ts DESC LIMIT 1
+       )
+       SELECT ROUND((latest.bal_avail / NULLIF(recent.avg_fee_avail * recent.submits_per_hour * 24, 0))::numeric, 1)
+       FROM latest, recent""",
+    {"x": 12, "y": 36, "w": 6, "h": 4}, "short",
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "red", "value": None},
+        {"color": "yellow", "value": 14},
+        {"color": "green", "value": 56},
+    ]},
+    color_mode="background",
+))
+
+panels.append(stat(
+    "Celestia 잔여 운영 일수",
+    """WITH recent AS (
+         SELECT
+           AVG((details->>'fee_paid_utia')::int) AS avg_fee_utia,
+           COUNT(*) AS submits_per_hour
+         FROM probes
+         WHERE da_layer='celestia' AND submit_success
+           AND details->>'fee_paid_utia' IS NOT NULL
+           AND ts > NOW() - INTERVAL '1 hour'
+       ), latest AS (
+         SELECT (details->>'balance_after')::numeric AS bal_utia
+         FROM probes WHERE da_layer='celestia' AND submit_success
+           AND details->>'balance_after' IS NOT NULL
+         ORDER BY ts DESC LIMIT 1
+       )
+       SELECT ROUND((latest.bal_utia / NULLIF(recent.avg_fee_utia * recent.submits_per_hour * 24, 0))::numeric, 1)
+       FROM latest, recent""",
+    {"x": 18, "y": 36, "w": 6, "h": 4}, "short",
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "red", "value": None},
+        {"color": "yellow", "value": 14},
+        {"color": "green", "value": 56},
+    ]},
+    color_mode="background",
+))
+
+# 잔액 시계열 (전 기간) — 양 레이어 별도 패널 (단위 다름)
+panels.append(timeseries(
+    "Avail Wallet Balance Trend (AVAIL)",
+    """SELECT ts AS time,
+              'balance_avail' AS metric,
+              (details->>'balance_after_planck')::numeric / 1e18 AS value
+       FROM probes
+       WHERE da_layer='avail' AND submit_success
+         AND details->>'balance_after_planck' IS NOT NULL
+         AND $__timeFilter(ts)
+       ORDER BY 1""",
+    {"x": 0, "y": 40, "w": 12, "h": 8}, "short",
+))
+
+panels.append(timeseries(
+    "Celestia Wallet Balance Trend (TIA)",
+    """SELECT ts AS time,
+              'balance_tia' AS metric,
+              (details->>'balance_after')::numeric / 1e6 AS value
+       FROM probes
+       WHERE da_layer='celestia' AND submit_success
+         AND details->>'balance_after' IS NOT NULL
+         AND $__timeFilter(ts)
+       ORDER BY 1""",
+    {"x": 12, "y": 40, "w": 12, "h": 8}, "short",
+))
+
 write_dashboard("06_self_probe_fraud.json", dashboard("dabeat-probes", "DABEAT — Self-Probe & Fraud", panels))
 
 
