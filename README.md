@@ -488,7 +488,7 @@ Celestia (또는 추후 Avail의 동등 시스템)에서 fraud proof가 발견�
 - **provisioning**: `/etc/grafana/provisioning/datasources/dabeat.yaml`
 - **주의**: `database`를 top-level + `jsonData.database` **둘 다** 적어야 함 (Grafana 13 frontend가 `jsonData`에서 읽음)
 
-### 7.3 대시보드 6개 (folder: `DABEAT`)
+### 7.3 대시보드 7개 (folder: `DABEAT`)
 
 | uid | 제목 | 패널 수 | 주요 패널 |
 |---|---|---|---|
@@ -497,7 +497,8 @@ Celestia (또는 추후 Avail의 동등 시스템)에서 fraud proof가 발견�
 | `dabeat-blocks` | DABEAT — Block Production | 7 | block time, square_size/matrix, data_size, throughput, block time 분포 |
 | `dabeat-availability` | DABEAT — Availability | 7 | sampling success rate, confidence 분포, latency, status 파이, coverage 게이지, pseudo survival |
 | `dabeat-namespace` | DABEAT — Namespace Activity | 10 | Avail 6 패널 + Celestia 4 패널 (heatmap, bytes, top 10, fetch success) |
-| `dabeat-probes` | DABEAT — Self-Probe & Fraud | 11 | Submit rate/latency, Survival Curve (bucket × layer), retrieve latency, fraud count, worker freshness, Celestia fee trend |
+| `dabeat-probes` | DABEAT — Self-Probe & Fraud | 13 | Submit rate/latency, Survival Curve, retrieve latency, fraud count, worker freshness, Celestia/Avail fee trend |
+| `dabeat-comparison` | DABEAT — DA Comparison | 11 | L2Beat-style 비교: Liveness / Retrieval Health / Cost / Finality / Retention claim vs measured |
 
 ### 7.4 마스터 사본 / 재배포
 

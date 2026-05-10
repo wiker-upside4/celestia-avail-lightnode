@@ -852,18 +852,209 @@ panels.append(barchart(
 ))
 
 panels.append(timeseries(
-    "Celestia 회당 fee (utia)",
+    "Celestia fee (utia/submit)",
     """SELECT ts AS time,
-              'fee_utia' AS metric,
+              'celestia_utia' AS metric,
               (details->>'fee_paid_utia')::int AS value
        FROM probes
        WHERE da_layer='celestia' AND submit_success
          AND details->>'fee_paid_utia' IS NOT NULL
          AND $__timeFilter(ts)
        ORDER BY 1""",
-    {"x": 12, "y": 28, "w": 12, "h": 8}, "short",
+    {"x": 12, "y": 28, "w": 6, "h": 8}, "short",
+))
+
+panels.append(timeseries(
+    "Avail fee (mAVAIL/submit, 1e-3 AVAIL)",
+    """SELECT ts AS time,
+              'avail_mavail' AS metric,
+              (details->>'fee_paid_avail')::numeric * 1000 AS value
+       FROM probes
+       WHERE da_layer='avail' AND submit_success
+         AND details->>'fee_paid_avail' IS NOT NULL
+         AND $__timeFilter(ts)
+       ORDER BY 1""",
+    {"x": 18, "y": 28, "w": 6, "h": 8}, "short",
 ))
 
 write_dashboard("06_self_probe_fraud.json", dashboard("dabeat-probes", "DABEAT — Self-Probe & Fraud", panels))
 
-print("\nAll 6 dashboards written.")
+
+# =====================================================================
+# DASHBOARD 7: DA Comparison (L2Beat-style overview, 팀 요구안 공통 레이어 5 메트릭)
+# =====================================================================
+_reset_id()
+panels = []
+
+# Row 1: Liveness ── DA 한 카드씩 (Avail / Celestia 큰 숫자)
+panels.append(stat(
+    "Avail Liveness (24h submit success rate)",
+    """SELECT
+         ROUND(100.0 * COUNT(*) FILTER (WHERE submit_success) / NULLIF(COUNT(*), 0), 2) AS pct
+       FROM probes WHERE da_layer='avail' AND ts > NOW() - INTERVAL '24 hours'""",
+    {"x": 0, "y": 0, "w": 6, "h": 5}, "percent",
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "red", "value": None},
+        {"color": "yellow", "value": 95},
+        {"color": "green", "value": 99},
+    ]},
+    color_mode="background",
+))
+panels.append(stat(
+    "Celestia Liveness (24h submit success rate)",
+    """SELECT
+         ROUND(100.0 * COUNT(*) FILTER (WHERE submit_success) / NULLIF(COUNT(*), 0), 2) AS pct
+       FROM probes WHERE da_layer='celestia' AND ts > NOW() - INTERVAL '24 hours'""",
+    {"x": 6, "y": 0, "w": 6, "h": 5}, "percent",
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "red", "value": None},
+        {"color": "yellow", "value": 95},
+        {"color": "green", "value": 99},
+    ]},
+    color_mode="background",
+))
+
+# Row 1 cont: Retrieval Health (5m bucket headline)
+panels.append(stat(
+    "Avail Retrieval Health (5m bucket, 24h)",
+    """SELECT
+         ROUND(100.0 * COUNT(*) FILTER (WHERE fetch_success) / NULLIF(COUNT(*), 0), 2) AS pct
+       FROM retrievals WHERE da_layer='avail' AND bucket_label='5m'
+         AND ts > NOW() - INTERVAL '24 hours'""",
+    {"x": 12, "y": 0, "w": 6, "h": 5}, "percent",
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "red", "value": None},
+        {"color": "yellow", "value": 95},
+        {"color": "green", "value": 99},
+    ]},
+    color_mode="background",
+))
+panels.append(stat(
+    "Celestia Retrieval Health (5m bucket, 24h)",
+    """SELECT
+         ROUND(100.0 * COUNT(*) FILTER (WHERE fetch_success) / NULLIF(COUNT(*), 0), 2) AS pct
+       FROM retrievals WHERE da_layer='celestia' AND bucket_label='5m'
+         AND ts > NOW() - INTERVAL '24 hours'""",
+    {"x": 18, "y": 0, "w": 6, "h": 5}, "percent",
+    thresholds={"mode": "absolute", "steps": [
+        {"color": "red", "value": None},
+        {"color": "yellow", "value": 95},
+        {"color": "green", "value": 99},
+    ]},
+    color_mode="background",
+))
+
+# Row 2: Finality / Confirmation time
+panels.append(stat(
+    "Avail Finality p50 (s)",
+    """SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY submit_latency_ms) / 1000.0
+       FROM probes WHERE da_layer='avail' AND submit_success
+         AND ts > NOW() - INTERVAL '24 hours'""",
+    {"x": 0, "y": 5, "w": 6, "h": 4}, "s",
+))
+panels.append(stat(
+    "Celestia Finality p50 (s)",
+    """SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY submit_latency_ms) / 1000.0
+       FROM probes WHERE da_layer='celestia' AND submit_success
+         AND ts > NOW() - INTERVAL '24 hours'""",
+    {"x": 6, "y": 5, "w": 6, "h": 4}, "s",
+))
+
+# Row 2 cont: Cost per submit
+panels.append(stat(
+    "Avail Cost per submit (mAVAIL)",
+    """SELECT ROUND(AVG((details->>'fee_paid_avail')::numeric * 1000)::numeric, 2)
+       FROM probes WHERE da_layer='avail' AND submit_success
+         AND details->>'fee_paid_avail' IS NOT NULL
+         AND ts > NOW() - INTERVAL '24 hours'""",
+    {"x": 12, "y": 5, "w": 6, "h": 4}, "short",
+))
+panels.append(stat(
+    "Celestia Cost per submit (utia)",
+    """SELECT ROUND(AVG((details->>'fee_paid_utia')::int)::numeric, 1)
+       FROM probes WHERE da_layer='celestia' AND submit_success
+         AND details->>'fee_paid_utia' IS NOT NULL
+         AND ts > NOW() - INTERVAL '24 hours'""",
+    {"x": 18, "y": 5, "w": 6, "h": 4}, "short",
+))
+
+# Row 3: Retention — claim vs measured
+panels.append({
+    "id": _next_id(),
+    "type": "table",
+    "title": "Retention: Claim vs Measured",
+    "datasource": DS,
+    "gridPos": {"x": 0, "y": 9, "w": 24, "h": 8},
+    "targets": [{
+        "datasource": DS,
+        "rawSql": """
+            SELECT
+              m.da_layer AS "DA",
+              m.native_token AS "Token",
+              m.retention_policy AS "Policy",
+              m.retention_days_claim AS "Claim (days)",
+              ROUND(EXTRACT(EPOCH FROM (NOW() - MIN(p.ts))) / 86400.0, 1) AS "Measured Span (days)",
+              COALESCE(
+                ROUND(100.0 * COUNT(r.*) FILTER (WHERE r.fetch_success) / NULLIF(COUNT(r.*), 0), 2),
+                NULL
+              ) AS "All-Bucket Retrieval %",
+              m.notes AS "Notes"
+            FROM da_layer_metadata m
+            LEFT JOIN probes p ON p.da_layer = m.da_layer AND p.submit_success
+            LEFT JOIN retrievals r ON r.probe_id = p.probe_id
+            GROUP BY m.da_layer, m.native_token, m.retention_policy, m.retention_days_claim, m.notes
+            ORDER BY m.da_layer
+        """,
+        "format": "table",
+        "refId": "A",
+        "editorMode": "code",
+    }],
+    "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+    "options": {"showHeader": True},
+})
+
+# Row 4: Survival Curve (시간 지나도 데이터 살아있나)
+panels.append(timeseries(
+    "Survival Curve — bucket × layer (24h)",
+    """SELECT date_trunc('hour', ts) AS time,
+              da_layer || '_' || bucket_label AS metric,
+              100.0 * COUNT(*) FILTER (WHERE fetch_success) / NULLIF(COUNT(*), 0) AS value
+       FROM retrievals WHERE $__timeFilter(ts)
+       GROUP BY 1, da_layer, bucket_label
+       ORDER BY 1""",
+    {"x": 0, "y": 17, "w": 24, "h": 8}, "percent",
+    thresholds_steps=[
+        {"color": "red", "value": None},
+        {"color": "yellow", "value": 80},
+        {"color": "green", "value": 95},
+    ],
+))
+
+# Row 5: Cost trend (USD-comparable proxy)
+panels.append(timeseries(
+    "Avail Cost Trend (mAVAIL/submit, 5m avg)",
+    """SELECT time_bucket('5 min', ts) AS time,
+              'avail' AS metric,
+              AVG((details->>'fee_paid_avail')::numeric * 1000) AS value
+       FROM probes WHERE da_layer='avail' AND submit_success
+         AND details->>'fee_paid_avail' IS NOT NULL
+         AND $__timeFilter(ts)
+       GROUP BY 1 ORDER BY 1""",
+    {"x": 0, "y": 25, "w": 12, "h": 8}, "short",
+))
+panels.append(timeseries(
+    "Celestia Cost Trend (utia/submit, 5m avg)",
+    """SELECT time_bucket('5 min', ts) AS time,
+              'celestia' AS metric,
+              AVG((details->>'fee_paid_utia')::int)::int AS value
+       FROM probes WHERE da_layer='celestia' AND submit_success
+         AND details->>'fee_paid_utia' IS NOT NULL
+         AND $__timeFilter(ts)
+       GROUP BY 1 ORDER BY 1""",
+    {"x": 12, "y": 25, "w": 12, "h": 8}, "short",
+))
+
+write_dashboard("07_da_comparison.json", dashboard("dabeat-comparison", "DABEAT — DA Comparison", panels))
+
+print("\nAll 7 dashboards written.")
+

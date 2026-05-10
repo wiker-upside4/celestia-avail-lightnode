@@ -1,6 +1,6 @@
 {
-  "uid": "dabeat-probes",
-  "title": "DABEAT \u2014 Self-Probe & Fraud",
+  "uid": "dabeat-comparison",
+  "title": "DABEAT \u2014 DA Comparison",
   "tags": [
     "dabeat"
   ],
@@ -14,7 +14,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Avail Submits (last 1h)",
+      "title": "Avail Liveness (24h submit success rate)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "dabeat-pg"
@@ -23,7 +23,7 @@
         "x": 0,
         "y": 0,
         "w": 6,
-        "h": 4
+        "h": 5
       },
       "targets": [
         {
@@ -31,7 +31,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "dabeat-pg"
           },
-          "rawSql": "SELECT COUNT(*) FROM probes WHERE da_layer='avail' AND submit_success AND ts > NOW() - INTERVAL '1 hour'",
+          "rawSql": "SELECT\n         ROUND(100.0 * COUNT(*) FILTER (WHERE submit_success) / NULLIF(COUNT(*), 0), 2) AS pct\n       FROM probes WHERE da_layer='avail' AND ts > NOW() - INTERVAL '24 hours'",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -39,13 +39,21 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "percent",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
               }
             ]
           },
@@ -63,14 +71,14 @@
         },
         "orientation": "auto",
         "textMode": "auto",
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "none"
       }
     },
     {
       "id": 2,
       "type": "stat",
-      "title": "Celestia Submits (last 1h)",
+      "title": "Celestia Liveness (24h submit success rate)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "dabeat-pg"
@@ -79,7 +87,7 @@
         "x": 6,
         "y": 0,
         "w": 6,
-        "h": 4
+        "h": 5
       },
       "targets": [
         {
@@ -87,7 +95,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "dabeat-pg"
           },
-          "rawSql": "SELECT COUNT(*) FROM probes WHERE da_layer='celestia' AND submit_success AND ts > NOW() - INTERVAL '1 hour'",
+          "rawSql": "SELECT\n         ROUND(100.0 * COUNT(*) FILTER (WHERE submit_success) / NULLIF(COUNT(*), 0), 2) AS pct\n       FROM probes WHERE da_layer='celestia' AND ts > NOW() - INTERVAL '24 hours'",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -95,13 +103,21 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "percent",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
               }
             ]
           },
@@ -119,14 +135,14 @@
         },
         "orientation": "auto",
         "textMode": "auto",
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "none"
       }
     },
     {
       "id": 3,
       "type": "stat",
-      "title": "Fraud Events (Celestia, all-time)",
+      "title": "Avail Retrieval Health (5m bucket, 24h)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "dabeat-pg"
@@ -135,7 +151,7 @@
         "x": 12,
         "y": 0,
         "w": 6,
-        "h": 4
+        "h": 5
       },
       "targets": [
         {
@@ -143,7 +159,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "dabeat-pg"
           },
-          "rawSql": "SELECT COUNT(*) FROM fraud_events",
+          "rawSql": "SELECT\n         ROUND(100.0 * COUNT(*) FILTER (WHERE fetch_success) / NULLIF(COUNT(*), 0), 2) AS pct\n       FROM retrievals WHERE da_layer='avail' AND bucket_label='5m'\n         AND ts > NOW() - INTERVAL '24 hours'",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -151,21 +167,21 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "percent",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
                 "color": "yellow",
-                "value": 1
+                "value": 95
               },
               {
-                "color": "red",
-                "value": 5
+                "color": "green",
+                "value": 99
               }
             ]
           },
@@ -190,7 +206,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "In-flight Avail probes (settle \ub300\uae30)",
+      "title": "Celestia Retrieval Health (5m bucket, 24h)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "dabeat-pg"
@@ -198,6 +214,70 @@
       "gridPos": {
         "x": 18,
         "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT\n         ROUND(100.0 * COUNT(*) FILTER (WHERE fetch_success) / NULLIF(COUNT(*), 0), 2) AS pct\n       FROM retrievals WHERE da_layer='celestia' AND bucket_label='5m'\n         AND ts > NOW() - INTERVAL '24 hours'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Avail Finality p50 (s)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
         "w": 6,
         "h": 4
       },
@@ -207,7 +287,119 @@
             "type": "grafana-postgresql-datasource",
             "uid": "dabeat-pg"
           },
-          "rawSql": "SELECT COUNT(*) FROM headers\n       WHERE da_layer='avail' AND availability_settled_at IS NULL\n         AND availability_attempts > 0",
+          "rawSql": "SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY submit_latency_ms) / 1000.0\n       FROM probes WHERE da_layer='avail' AND submit_success\n         AND ts > NOW() - INTERVAL '24 hours'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Celestia Finality p50 (s)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY submit_latency_ms) / 1000.0\n       FROM probes WHERE da_layer='celestia' AND submit_success\n         AND ts > NOW() - INTERVAL '24 hours'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Avail Cost per submit (mAVAIL)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT ROUND(AVG((details->>'fee_paid_avail')::numeric * 1000)::numeric, 2)\n       FROM probes WHERE da_layer='avail' AND submit_success\n         AND details->>'fee_paid_avail' IS NOT NULL\n         AND ts > NOW() - INTERVAL '24 hours'",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -244,18 +436,18 @@
       }
     },
     {
-      "id": 5,
-      "type": "timeseries",
-      "title": "Submit Rate (per 5min bucket)",
+      "id": 8,
+      "type": "stat",
+      "title": "Celestia Cost per submit (utia)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "dabeat-pg"
       },
       "gridPos": {
-        "x": 0,
-        "y": 4,
-        "w": 12,
-        "h": 8
+        "x": 18,
+        "y": 5,
+        "w": 6,
+        "h": 4
       },
       "targets": [
         {
@@ -263,8 +455,8 @@
             "type": "grafana-postgresql-datasource",
             "uid": "dabeat-pg"
           },
-          "rawSql": "SELECT time_bucket('5 minute', ts) AS time,\n              da_layer AS metric,\n              COUNT(*) AS value\n       FROM probes WHERE submit_success AND $__timeFilter(ts)\n       GROUP BY 1, 2 ORDER BY 1",
-          "format": "time_series",
+          "rawSql": "SELECT ROUND(AVG((details->>'fee_paid_utia')::int)::numeric, 1)\n       FROM probes WHERE da_layer='celestia' AND submit_success\n         AND details->>'fee_paid_utia' IS NOT NULL\n         AND ts > NOW() - INTERVAL '24 hours'",
+          "format": "table",
           "refId": "A",
           "editorMode": "code"
         }
@@ -272,15 +464,6 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "spanNulls": false,
-            "showPoints": "auto",
-            "pointSize": 4,
-            "fillOpacity": 10,
-            "axisLabel": ""
-          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -289,97 +472,36 @@
                 "value": null
               }
             ]
-          }
+          },
+          "mappings": []
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
       }
     },
     {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Submit Latency p50/p95 (ms)",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "dabeat-pg"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 4,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "dabeat-pg"
-          },
-          "rawSql": "SELECT time_bucket('5 minute', ts) AS time,\n              da_layer || '_p50' AS metric,\n              percentile_cont(0.5) WITHIN GROUP (ORDER BY submit_latency_ms) AS value\n       FROM probes WHERE submit_success AND $__timeFilter(ts)\n       GROUP BY 1, da_layer\n       UNION ALL\n       SELECT time_bucket('5 minute', ts) AS time,\n              da_layer || '_p95' AS metric,\n              percentile_cont(0.95) WITHIN GROUP (ORDER BY submit_latency_ms) AS value\n       FROM probes WHERE submit_success AND $__timeFilter(ts)\n       GROUP BY 1, da_layer\n       ORDER BY 1",
-          "format": "time_series",
-          "refId": "A",
-          "editorMode": "code"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "spanNulls": false,
-            "showPoints": "auto",
-            "pointSize": 4,
-            "fillOpacity": 10,
-            "axisLabel": ""
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      }
-    },
-    {
-      "id": 7,
-      "type": "timeseries",
-      "title": "Retrieval Success Rate by Bucket (Survival Curve)",
+      "id": 9,
+      "type": "table",
+      "title": "Retention: Claim vs Measured",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "dabeat-pg"
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 9,
         "w": 24,
         "h": 8
       },
@@ -389,7 +511,43 @@
             "type": "grafana-postgresql-datasource",
             "uid": "dabeat-pg"
           },
-          "rawSql": "SELECT time_bucket('15 minute', ts) AS time,\n              da_layer || '_' || bucket_label AS metric,\n              100.0 * COUNT(*) FILTER (WHERE fetch_success) / NULLIF(COUNT(*), 0) AS value\n       FROM retrievals WHERE $__timeFilter(ts)\n       GROUP BY 1, da_layer, bucket_label ORDER BY 1",
+          "rawSql": "\n            SELECT\n              m.da_layer AS \"DA\",\n              m.native_token AS \"Token\",\n              m.retention_policy AS \"Policy\",\n              m.retention_days_claim AS \"Claim (days)\",\n              ROUND(EXTRACT(EPOCH FROM (NOW() - MIN(p.ts))) / 86400.0, 1) AS \"Measured Span (days)\",\n              COALESCE(\n                ROUND(100.0 * COUNT(r.*) FILTER (WHERE r.fetch_success) / NULLIF(COUNT(r.*), 0), 2),\n                NULL\n              ) AS \"All-Bucket Retrieval %\",\n              m.notes AS \"Notes\"\n            FROM da_layer_metadata m\n            LEFT JOIN probes p ON p.da_layer = m.da_layer AND p.submit_success\n            LEFT JOIN retrievals r ON r.probe_id = p.probe_id\n            GROUP BY m.da_layer, m.native_token, m.retention_policy, m.retention_days_claim, m.notes\n            ORDER BY m.da_layer\n        ",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Survival Curve \u2014 bucket \u00d7 layer (24h)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT date_trunc('hour', ts) AS time,\n              da_layer || '_' || bucket_label AS metric,\n              100.0 * COUNT(*) FILTER (WHERE fetch_success) / NULLIF(COUNT(*), 0) AS value\n       FROM retrievals WHERE $__timeFilter(ts)\n       GROUP BY 1, da_layer, bucket_label\n       ORDER BY 1",
           "format": "time_series",
           "refId": "A",
           "editorMode": "code"
@@ -441,181 +599,17 @@
       }
     },
     {
-      "id": 8,
-      "type": "timeseries",
-      "title": "Retrieval Latency p50/p95 by Layer (ms)",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "dabeat-pg"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 20,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "dabeat-pg"
-          },
-          "rawSql": "SELECT time_bucket('5 minute', ts) AS time,\n              da_layer || '_p50' AS metric,\n              percentile_cont(0.5) WITHIN GROUP (ORDER BY fetch_latency_ms) AS value\n       FROM retrievals WHERE fetch_latency_ms IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1, da_layer\n       UNION ALL\n       SELECT time_bucket('5 minute', ts) AS time,\n              da_layer || '_p95' AS metric,\n              percentile_cont(0.95) WITHIN GROUP (ORDER BY fetch_latency_ms) AS value\n       FROM retrievals WHERE fetch_latency_ms IS NOT NULL AND $__timeFilter(ts)\n       GROUP BY 1, da_layer\n       ORDER BY 1",
-          "format": "time_series",
-          "refId": "A",
-          "editorMode": "code"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "spanNulls": false,
-            "showPoints": "auto",
-            "pointSize": 4,
-            "fillOpacity": 10,
-            "axisLabel": ""
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      }
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "Retrieval bucket\ubcc4 success rate (current)",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "dabeat-pg"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 20,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "dabeat-pg"
-          },
-          "rawSql": "SELECT date_trunc('hour', ts) AS time,\n              da_layer || '_' || bucket_label AS metric,\n              100.0 * COUNT(*) FILTER (WHERE fetch_success) / NULLIF(COUNT(*), 0) AS value\n       FROM retrievals\n       WHERE $__timeFilter(ts)\n       GROUP BY 1, da_layer, bucket_label\n       ORDER BY 1",
-          "format": "time_series",
-          "refId": "A",
-          "editorMode": "code"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "spanNulls": false,
-            "showPoints": "auto",
-            "pointSize": 4,
-            "fillOpacity": 10,
-            "axisLabel": ""
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      }
-    },
-    {
-      "id": 10,
-      "type": "barchart",
-      "title": "Worker Freshness (\uac01 \ud14c\uc774\ube14 \ub9c8\uc9c0\ub9c9 INSERT \u2014 minutes ago)",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "dabeat-pg"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 28,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "dabeat-pg"
-          },
-          "rawSql": "SELECT t AS worker_table, EXTRACT(EPOCH FROM (NOW() - last_insert))/60 AS minutes_ago FROM (\n       SELECT 'node_health' AS t, MAX(ts) AS last_insert FROM node_health\n       UNION ALL SELECT 'headers',                MAX(ts) FROM headers\n       UNION ALL SELECT 'block_avail_samples',    MAX(ts) FROM block_availability_samples\n       UNION ALL SELECT 'namespace_obs',          MAX(ts) FROM namespace_observations\n       UNION ALL SELECT 'probes',                 MAX(ts) FROM probes\n       UNION ALL SELECT 'retrievals',             MAX(ts) FROM retrievals\n       ) x ORDER BY minutes_ago DESC",
-          "format": "table",
-          "refId": "A",
-          "editorMode": "code"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "m"
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "xTickLabelRotation": 0,
-        "showValue": "auto"
-      }
-    },
-    {
       "id": 11,
       "type": "timeseries",
-      "title": "Celestia fee (utia/submit)",
+      "title": "Avail Cost Trend (mAVAIL/submit, 5m avg)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "dabeat-pg"
       },
       "gridPos": {
-        "x": 12,
-        "y": 28,
-        "w": 6,
+        "x": 0,
+        "y": 25,
+        "w": 12,
         "h": 8
       },
       "targets": [
@@ -624,7 +618,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "dabeat-pg"
           },
-          "rawSql": "SELECT ts AS time,\n              'celestia_utia' AS metric,\n              (details->>'fee_paid_utia')::int AS value\n       FROM probes\n       WHERE da_layer='celestia' AND submit_success\n         AND details->>'fee_paid_utia' IS NOT NULL\n         AND $__timeFilter(ts)\n       ORDER BY 1",
+          "rawSql": "SELECT time_bucket('5 min', ts) AS time,\n              'avail' AS metric,\n              AVG((details->>'fee_paid_avail')::numeric * 1000) AS value\n       FROM probes WHERE da_layer='avail' AND submit_success\n         AND details->>'fee_paid_avail' IS NOT NULL\n         AND $__timeFilter(ts)\n       GROUP BY 1 ORDER BY 1",
           "format": "time_series",
           "refId": "A",
           "editorMode": "code"
@@ -670,15 +664,15 @@
     {
       "id": 12,
       "type": "timeseries",
-      "title": "Avail fee (mAVAIL/submit, 1e-3 AVAIL)",
+      "title": "Celestia Cost Trend (utia/submit, 5m avg)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "dabeat-pg"
       },
       "gridPos": {
-        "x": 18,
-        "y": 28,
-        "w": 6,
+        "x": 12,
+        "y": 25,
+        "w": 12,
         "h": 8
       },
       "targets": [
@@ -687,7 +681,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "dabeat-pg"
           },
-          "rawSql": "SELECT ts AS time,\n              'avail_mavail' AS metric,\n              (details->>'fee_paid_avail')::numeric * 1000 AS value\n       FROM probes\n       WHERE da_layer='avail' AND submit_success\n         AND details->>'fee_paid_avail' IS NOT NULL\n         AND $__timeFilter(ts)\n       ORDER BY 1",
+          "rawSql": "SELECT time_bucket('5 min', ts) AS time,\n              'celestia' AS metric,\n              AVG((details->>'fee_paid_utia')::int)::int AS value\n       FROM probes WHERE da_layer='celestia' AND submit_success\n         AND details->>'fee_paid_utia' IS NOT NULL\n         AND $__timeFilter(ts)\n       GROUP BY 1 ORDER BY 1",
           "format": "time_series",
           "refId": "A",
           "editorMode": "code"
