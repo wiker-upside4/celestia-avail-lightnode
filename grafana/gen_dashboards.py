@@ -992,6 +992,30 @@ panels.append(timeseries(
     {"x": 12, "y": 40, "w": 12, "h": 8}, "short",
 ))
 
+# Row 7: service_events — watchdog 자동 재시작 / 운영 이벤트 history
+panels.append({
+    "id": _next_id(),
+    "type": "table",
+    "title": "Service Events (LC 재시작 / 운영 이벤트, 최근 30개)",
+    "datasource": DS,
+    "gridPos": {"x": 0, "y": 48, "w": 24, "h": 8},
+    "targets": [{
+        "datasource": DS,
+        "rawSql": """SELECT
+                       ts, event_type, target, severity, reason,
+                       details->>'fails' AS fails,
+                       details->>'total' AS total,
+                       details->>'health_back_seconds' AS recover_s
+                     FROM service_events
+                     ORDER BY ts DESC LIMIT 30""",
+        "format": "table",
+        "refId": "A",
+        "editorMode": "code",
+    }],
+    "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
+    "options": {"showHeader": True},
+})
+
 write_dashboard("06_self_probe_fraud.json", dashboard("dabeat-probes", "DABEAT — Self-Probe & Fraud", panels))
 
 

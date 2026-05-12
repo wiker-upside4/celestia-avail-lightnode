@@ -1111,6 +1111,42 @@
           "sort": "none"
         }
       }
+    },
+    {
+      "id": 19,
+      "type": "table",
+      "title": "Service Events (LC \uc7ac\uc2dc\uc791 / \uc6b4\uc601 \uc774\ubca4\ud2b8, \ucd5c\uadfc 30\uac1c)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "dabeat-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "dabeat-pg"
+          },
+          "rawSql": "SELECT\n                       ts, event_type, target, severity, reason,\n                       details->>'fails' AS fails,\n                       details->>'total' AS total,\n                       details->>'health_back_seconds' AS recover_s\n                     FROM service_events\n                     ORDER BY ts DESC LIMIT 30",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
     }
   ],
   "schemaVersion": 39,

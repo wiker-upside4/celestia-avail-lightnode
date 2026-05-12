@@ -27,6 +27,7 @@ PYTHONPATH=$PROJ
 * * * * * $PYTHON -m workers.avail.availability_check >>$LOGS/avail_availability.log 2>&1
 */5 * * * * $PYTHON -m workers.avail.submit          >>$LOGS/avail_submit.log         2>&1
 */5 * * * * $PYTHON -m workers.avail.retrieve        >>$LOGS/avail_retrieve.log       2>&1
+*/5 * * * * $PYTHON -m workers.avail.watchdog        >>$LOGS/avail_watchdog.log       2>&1
 * * * * * $PYTHON -m workers.celestia.submit         >>$LOGS/celestia_submit.log      2>&1
 */5 * * * * $PYTHON -m workers.celestia.retrieve     >>$LOGS/celestia_retrieve.log    2>&1
 0 0 * * * df -h >>$LOGS/disk_usage.log 2>&1
