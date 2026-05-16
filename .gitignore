@@ -29,3 +29,6 @@ logs/
 node_modules/
 .idea/
 .vscode/
+
+# Team-handoff docs (contain internal IPs / ops procedures — keep local only)
+viv4ld.md
