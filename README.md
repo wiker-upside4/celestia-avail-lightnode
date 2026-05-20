@@ -3,15 +3,13 @@
 DA(Data Availability) 레이어의 retrieval 가능성과 건강도를 측정하는 모니터링 시스템.
 Celestia, Avail 두 레이어를 모니터링 (EigenDA는 추후 추가). 토큰 충전 후 self-probe submit/retrieve도 추가 예정.
 
-마지막 업데이트: 2026-05-07
-- Grafana 인스턴스 asia-northeast3로 이전 (cross-region 해소)
-- Celestia fraud 모니터링 (`fraud_events` 테이블 + `fraud_monitor.py` 워커)
-- Avail App Mode + Self-Probe 시스템 (App ID 46, `submit.py` + `retrieve.py`, 9 age bucket survival curve)
-- Celestia Self-Probe (DABEAT01 namespace, 회당 320 utia, 8주 25.8 TIA 예산)
-- Celestia 추가 health 메트릭 (ResourceState, NATStatus, PubSubPeers)
-- monitored_namespaces 3개 활성화 (Eclipse/Lightlink/Movement)
-- Grafana Dashboard 6 신설 (Self-Probe & Fraud, Survival Curve 포함)
-- **워커 13개, 테이블 8개, Grafana 대시보드 6개 (59 패널)**
+마지막 업데이트: 2026-05-20
+- **네트워크 전체 per-block blob aggregate 수집** — 신규 테이블 `celestia_block_blobs` / `avail_block_blobs`, 기존 `celestia/header.py` + `avail/header.py` 에 통합 (새 cron 라인 없음)
+- Celestia: `share.GetEDS` + ODS share 파싱 (신규 `workers/celestia/share_parser.py`) — Celenium per-block 수치와 1:1 매칭 검증 완료
+- Avail: 기존 LC `/v2/blocks/{N}/header` 응답의 `extension.app_lookup` 사용 — 추가 RPC 호출 0건
+- `dabeat_ro` SELECT 권한 두 신규 테이블에도 부여 (메인 DB 측에서 같은 유저로 긁어가기 가능)
+- 이전 (2026-05-07): Grafana 인스턴스 asia-northeast3로 이전, Celestia fraud 모니터링, Avail App Mode + Self-Probe (9 age bucket), Celestia Self-Probe (DABEAT01 namespace, 320 utia/회), Celestia 추가 health 메트릭, monitored_namespaces 3개 활성화, Grafana Dashboard 6 신설
+- **워커 13개, 테이블 10개, Grafana 대시보드 6개 (59 패널)**
 
 ---
 
@@ -202,15 +200,18 @@ Celestia, Avail 두 레이어를 모니터링 (EigenDA는 추후 추가). 토큰
 /home/wiker/dabeat/          (mode 755, 코드)
 ├── workers/
 │   ├── common/              (config.py, db.py, rpc.py)
-│   ├── celestia/            (health, header, namespace_mon, shares_check, fraud_monitor)
-│   └── avail/               (health, header, app_id_mon, availability_check, submit, retrieve)
-├── schema/                  (001~006 마이그레이션)
+│   ├── celestia/            (health, header, namespace_mon, shares_check, fraud_monitor, submit, retrieve, share_parser)
+│   └── avail/               (health, header, app_id_mon, availability_check, submit, retrieve, watchdog)
+├── schema/                  (001~009 마이그레이션)
 │   ├── 001_init.sql              (초기 테이블 6개 + hypertable)
 │   ├── 002_seed.sql              (monitored_namespaces 시드)
 │   ├── 003_shares_available.sql  (headers에 shares_* 컬럼)
 │   ├── 004_availability.sql      (headers에 availability_* 컬럼 + block_availability_samples)
 │   ├── 005_fraud_events.sql      (fraud_events hypertable)
-│   └── 006_avail_probes.sql      (probes.payload_hash, retrievals.bucket_label)
+│   ├── 006_avail_probes.sql      (probes.payload_hash, retrievals.bucket_label)
+│   ├── 007_da_metadata.sql       (da_layer_metadata: claim vs measured 정책 비교용)
+│   ├── 008_service_events.sql    (service_events hypertable: LC 재시작 등 운영 timeline)
+│   └── 009_block_blobs.sql       (celestia_block_blobs / avail_block_blobs: 네트워크 전체 per-block blob 집계)
 ├── scripts/                 (install_cron.sh, backup.sh, logrotate.dabeat, backfill.py)
 ├── dashboards/              (Grafana JSON 백업)
 ├── logs/                    (cron 로그)
@@ -239,12 +240,12 @@ DB_PASSWORD=<28자 랜덤>
 | 워커 | RPC 호출 | INSERT/UPDATE 대상 | 동작 요약 |
 |---|---|---|---|
 | `celestia/health.py` | `header.NetworkHead`, `header.LocalHead`, `das.SamplingStats`, `p2p.Peers`, `p2p.BandwidthStats`, `node.Info`, `header.SyncState` | `node_health` (1행/min) | sync_lag, das, peers, bw, latency 모두 |
-| `celestia/header.py` | `header.LocalHead`, `header.GetByHeight(h)` | `headers` (≤200 blocks/run) | MAX(height) 이후~LocalHead까지 catch-up |
+| `celestia/header.py` | `header.LocalHead`, `header.GetByHeight(h)`, `share.GetEDS(h)` | `headers` + `celestia_block_blobs` (≤200 blocks/run) | MAX(height)~LocalHead catch-up. 블록당 EDS 파싱(`share_parser.count_blobs`)으로 네트워크 전체 user blob 집계 upsert. EDS fetch 실패 시 block_blobs만 skip하고 headers 삽입은 계속 |
 | `celestia/namespace_mon.py` | `blob.GetAll(h, [ns])` | `namespace_observations` (≤50 blocks/ns/run) | active=TRUE만 처리 (현재 placeholder는 skip) |
 | `celestia/shares_check.py` | `share.SharesAvailable(h)` | `headers.shares_*` UPDATE + `block_availability_samples` INSERT | 헤더 들어오는 대로 단발 가용성 검증 |
 | `celestia/fraud_monitor.py` | `fraud.Get('bad-encoding')` | `fraud_events` INSERT (발견 시만) | BEFP polling. 정상=0건, 발견 시 alert 가치 |
 | `avail/health.py` | `GET /v2/status`, `/v2/blocks/{last}`, `/v2/version` | `node_health` (1행/min) | block_confidence, status, sync_lag |
-| `avail/header.py` | `GET /v2/blocks/{n}/header` | `headers` (≤100 blocks/run) | 사용 가능 범위 내에서 catch-up |
+| `avail/header.py` | `GET /v2/blocks/{n}/header` | `headers` + `avail_block_blobs` (≤100 blocks/run) | 사용 가능 범위 내에서 catch-up. 같은 응답의 `extension.app_lookup`에서 네트워크 전체 blob_count/total_bytes/app_id_count 집계 upsert — 추가 RPC 호출 0건 |
 | `avail/app_id_mon.py` | `GET /v2/blocks/{n}/header` | `namespace_observations` | header.app_lookup으로 app_id별 blob_count/bytes 추출 |
 | `avail/availability_check.py` | `GET /v2/blocks/{h}` | `headers.availability_*` UPDATE + `block_availability_samples` INSERT | settle까지 ≤3회 재호출, status+confidence 시계열 |
 | `avail/submit.py` | `POST /v2/submit` | `probes` INSERT (1행/min) | App ID 46으로 자체 페이로드 submit. payload_hash로 retrieval 매칭 가능 |
@@ -276,18 +277,22 @@ DB_PASSWORD=<28자 랜덤>
 
 **모든 테이블은 long-format**. `da_layer TEXT` 컬럼 값 (`'celestia'` 또는 `'avail'`)으로 분리. 같은 테이블에 양 레이어 데이터가 행 단위로 섞임. 레이어 전용 컬럼은 해당 레이어가 아닐 때 NULL.
 
-### 6.2 테이블 8개
+### 6.2 테이블 10개
 
 | 테이블 | 종류 | 설명 |
 |---|---|---|
 | `node_health` | hypertable (ts) | 라이트 노드 헬스 시계열 |
 | `headers` | hypertable (ts) | 블록 헤더 + per-block 가용성 요약 |
-| `namespace_observations` | hypertable (ts) | namespace/app_id별 활동 시계열 |
+| `namespace_observations` | hypertable (ts) | namespace/app_id별 활동 시계열 (모니터링 대상만) |
 | `block_availability_samples` | hypertable (ts) | 가용성 체크 매 attempt 시계열 |
 | `fraud_events` | hypertable (ts) | fraud proof 발생 기록 (정상시 비어있음) |
+| `service_events` | hypertable (ts) | LC 재시작 등 운영 이벤트 timeline (watchdog 등이 INSERT) |
 | `monitored_namespaces` | regular | 모니터링 대상 매핑 (rollup_name) |
-| `probes` | regular | self-probe submit 기록 (토큰 후 사용, 현재 빈 상태) |
-| `retrievals` | hypertable (ts) | self-probe retrieval 결과 (토큰 후 사용, 현재 빈 상태) |
+| `da_layer_metadata` | regular | DA 레이어별 정책/메타 (claim vs measured 비교용) |
+| `probes` | regular | self-probe submit 기록 (양 레이어 운영 중) |
+| `retrievals` | hypertable (ts) | self-probe retrieval 결과 (9 bucket × 양 레이어) |
+| `celestia_block_blobs` | regular | **네트워크 전체** Celestia 블록당 blob 집계 (height PK) |
+| `avail_block_blobs` | regular | **네트워크 전체** Avail 블록당 blob 집계 (height PK) |
 
 ### 6.3 `node_health` (hypertable)
 
@@ -465,6 +470,74 @@ Celestia (또는 추후 Avail의 동등 시스템)에서 fraud proof가 발견�
 | `details` | JSONB |
 
 **인덱스**: `(probe_id, bucket_label)`
+
+### 6.11 `celestia_block_blobs` (regular, **2026-05-20 신설**)
+
+Celestia 메인넷 매 블록의 네트워크 전체 blob 집계. 모니터링 대상 namespace 필터링 없이 ODS의 모든 user namespace 합산. `celestia/header.py` 가 새 블록 처리할 때 `share.GetEDS(h)` 호출 → `workers/celestia/share_parser.count_blobs()` 로 파싱 → upsert.
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| `height` | BIGINT PRIMARY KEY | Celestia block height |
+| `block_time` | TIMESTAMPTZ NOT NULL | chain block timestamp (`header.time`) |
+| `blob_count` | INTEGER NOT NULL | 네트워크 전체 user blob 수 (reserved namespace + namespace-padding share 제외) |
+| `total_blob_bytes` | BIGINT | 모든 blob payload bytes 합 (Celenium `blobs_size` 와 정확 일치) |
+| `namespace_count` | INTEGER | 블록 내 unique user namespace 수 (padding-only namespace 제외) |
+| `collected_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | 워커가 INSERT/UPDATE한 시각 — 증분 pull watermark용 (UPSERT 시에도 갱신됨) |
+
+**인덱스**: `height` (PK), `(block_time DESC)`
+**권한**: `dabeat_ro` SELECT
+
+**Share parser 동작 요약** (`workers/celestia/share_parser.py`):
+1. EDS의 ODS quadrant(top-left N/2 × N/2)만 순회 — 나머지 3개 quadrant는 erasure parity
+2. share 첫 29 byte = namespace prefix. 다음 1 byte = info byte (bit0 = sequence_start)
+3. Reserved namespace 제외 — `v=0x00 AND ns[1..27]=0x00` (primary-reserved 전체 범위) 또는 `v=0xff` (secondary/parity)
+4. `sequence_start=1 AND sequence_length>0` 만 blob 1개로 카운트 (sequence_length=0인 namespace-padding share 제외)
+5. `total_bytes` = sequence_length 합
+
+**검증** (2026-05-20, Celenium 8 sample): 모두 1:1 일치 (height/blob_count/total_blob_bytes). Celenium per-block API 응답이 ground truth.
+
+### 6.12 `avail_block_blobs` (regular, **2026-05-20 신설**)
+
+Avail 메인넷 매 블록의 네트워크 전체 DataAvailability blob 집계. `avail/header.py` 가 이미 호출하는 `/v2/blocks/{n}/header` 응답의 `extension.app_lookup` 에서 추출 — 추가 RPC 호출 없음.
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| `height` | BIGINT PRIMARY KEY | Avail block number |
+| `block_time` | TIMESTAMPTZ NOT NULL | LC `received_at` (UNIX epoch sec) — chain timestamp와 보통 0~수초 차. `headers.block_time` 과 동일 소스. |
+| `blob_count` | INTEGER NOT NULL | `app_lookup.index` 길이 (블록 내 모든 `DataAvailability.submitData` 슬롯) |
+| `total_blob_bytes` | BIGINT | `app_lookup.size` (모든 app data byte 합) |
+| `app_id_count` | INTEGER | 블록 내 unique appId 수 (`set(e.appId for e in index)`) |
+| `collected_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | UPSERT 시 갱신 — 증분 pull watermark용 |
+
+**인덱스**: `height` (PK), `(block_time DESC)`
+**권한**: `dabeat_ro` SELECT
+
+> Avail mainnet 자체가 sparse — 약 75% 블록이 empty (blob_count=0). 7일 평균 ~1,200 blobs/day / ~1.2 MB/day. 단기 sample은 변동 크니 24h 이상 윈도우로 평가 권장.
+
+### 6.13 외부 인테이크 — 메인 DB에서 긁어가기
+
+`celestia_block_blobs` / `avail_block_blobs` 둘 다 `dabeat_ro` 가 SELECT 가능. 메인 DB 또는 외부 컨슈머에서 증분 pull 권장 패턴:
+
+```sql
+-- 증분 watermark 방식 (collected_at는 UPSERT에서도 NOW()로 갱신됨)
+SELECT * FROM celestia_block_blobs
+WHERE collected_at > $last_seen
+ORDER BY collected_at;
+
+-- 또는 height 기반 페이지네이션 (초기 backfill용)
+SELECT * FROM avail_block_blobs
+WHERE height > $last_height
+ORDER BY height LIMIT 1000;
+```
+
+**연결 정보**:
+- host: `<worker-db1-internal-ip>` (worker-db1, intra-VPC) / port: `5432` / db: `dabeat` / user: `dabeat_ro`
+- `pg_hba.conf` 현재 허용 범위: `10.178.0.0/24` (같은 GCP VPC subnet)
+- 다른 subnet/외부에서 붙으려면 `pg_hba.conf` 추가 + (외부면) `postgresql.conf` `listen_addresses` 확장 + 방화벽 (`allow-grafana-to-dabeat-db` 와 동일 패턴) 필요
+
+**현재 적재 속도 (2026-05-20 측정)**:
+- celestia_block_blobs: ~14,232 행/day (~1.7 MB/day with overhead)
+- avail_block_blobs: ~4,327 행/day (~520 kB/day)
 
 ---
 
@@ -668,6 +741,11 @@ Users:
 12. **Celestia health 메트릭 보강**: `p2p.ResourceState`, `p2p.NATStatus`, `p2p.PubSubPeers` 추가 호출. node_health.details에 메모리/streams/conns/FD/NAT/pubsub 정보 추가.
 13. **monitored_namespaces 부분 활성화**: celenium API로 Eclipse / Lightlink / Movement 3개 namespace 식별, 4 RPC 호출/분 추가 발생, 매분 `namespace_observations` 적재 시작. Manta / Aevo는 ASCII name이 hex에 없어 자동 검색 불가 — 직접 lookup 필요.
 14. **Grafana Dashboard 6 신설 (Self-Probe & Fraud)**: 11 패널 — Avail/Celestia submit rate / latency, **Survival Curve (bucket × layer)**, retrieve latency, fraud event count, worker freshness, Celestia fee 추이. Dashboard 5 (Namespace Activity)에도 Celestia 4 패널 추가 (heatmap, total bytes, top 10, fetch success). 38 → **59 패널**, 5 → **6 dashboard**. `dabeat_ro` 유저 권한 안전망 강화 (`GRANT SELECT ON ALL TABLES`).
+15. **네트워크 전체 per-block blob 집계 (2026-05-20)**: 신규 테이블 `celestia_block_blobs` / `avail_block_blobs` (schema/009). 기존 header 워커에 통합 — 새 cron 라인 없음. Celestia는 `share.GetEDS` + ODS share 파싱 (`workers/celestia/share_parser.py`), Avail은 이미 받는 `extension.app_lookup` 재활용 (추가 RPC 0건). Celenium 8 sample 1:1 일치 검증. 두 차례 parser 보정:
+    - **1차**: primary-reserved 필터를 `ns[28] < 0x80` 조건 → `v=0x00 AND ns[1..27]=0` 전체 범위로 확장 (TAIL_PAD `0x00...0xff` 등 누락 수정)
+    - **2차**: namespace-padding share (`sequence_length=0` 인 사용자 NS share) 제외 — Celestia가 namespace 경계 정렬을 위해 끼워넣는 padding이 sequence_start=1 이라 user blob으로 오인됐었음. 영향 ~0.2~0.5%
+    - 두 차례 모두 기존 row recount 적용 완료
+    - `dabeat_ro` SELECT 권한 부여 → 메인 DB 측에서 같은 유저로 incremental pull 가능 (watermark: `collected_at`)
 
 ---
 
