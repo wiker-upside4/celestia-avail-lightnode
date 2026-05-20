@@ -2,6 +2,11 @@
 
 Pulls /v2/blocks/{n}/header for new blocks since last DB max(height).
 Stays within the LC's available range to avoid 404s.
+
+For each new block we insert one row into `headers` (block metadata) and one
+row into `avail_block_blobs` (network-wide blob aggregate computed from the
+same header's extension.app_lookup — no extra RPC call). The block_time used
+matches headers.block_time (LC `received_at`, ≈chain time within a few sec).
 """
 import sys
 import traceback
@@ -17,6 +22,39 @@ def get_last_height():
     with cursor() as cur:
         cur.execute("SELECT COALESCE(MAX(height), 0) FROM headers WHERE da_layer = 'avail'")
         return cur.fetchone()[0]
+
+
+def _upsert_block_blobs(height, block_time, blob_count, total_bytes, app_id_count):
+    if block_time is None:
+        # block_blobs.block_time is NOT NULL — skip rather than fail the row.
+        return
+    with cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO avail_block_blobs (
+                height, block_time, blob_count, total_blob_bytes, app_id_count
+            ) VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (height) DO UPDATE SET
+                block_time       = EXCLUDED.block_time,
+                blob_count       = EXCLUDED.blob_count,
+                total_blob_bytes = EXCLUDED.total_blob_bytes,
+                app_id_count     = EXCLUDED.app_id_count,
+                collected_at     = NOW()
+            """,
+            (height, block_time, blob_count, total_bytes, app_id_count),
+        )
+
+
+def _aggregate_app_lookup(app_lookup):
+    """Return (blob_count, total_blob_bytes, app_id_count) from a block header's
+    extension.app_lookup. `index` lists every blob slot in the block across all
+    app_ids; `size` is the total app-data byte count.
+    """
+    index = (app_lookup or {}).get("index") or []
+    total_size = (app_lookup or {}).get("size") or 0
+    blob_count = len(index)
+    app_ids = {e.get("appId") for e in index if e.get("appId") is not None}
+    return blob_count, int(total_size), len(app_ids)
 
 
 def main():
@@ -91,6 +129,14 @@ def main():
                     block_total_bytes, Json(details),
                 ),
             )
+
+        # Network-wide blob aggregate from the same header response — no extra RPC.
+        try:
+            blob_count, total_bytes, app_id_count = _aggregate_app_lookup(app_lookup)
+            _upsert_block_blobs(d.get("number"), block_time, blob_count, total_bytes, app_id_count)
+        except Exception as e:
+            sys.stderr.write(f"[avail/header] block_blobs upsert failed h={h}: {e}\n")
+
         inserted += 1
     print(f"[avail/header] inserted {inserted} blocks ({start}..{end}, last_avail={last_avail})")
     return 0
